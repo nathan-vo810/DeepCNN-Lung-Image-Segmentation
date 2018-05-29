@@ -1,0 +1,2 @@
+# DeepCNN-Lung-Image-Segmentation
+# DeepCNN-Lung-Image-Segmentation Thesis Project for Computer Science Department at Vietnamese - German University. This is a Keras implementation of the lung region segmentation using Deep Convolutional Networks model described in the paper ["Accurate segmentation of lung fields on chest radiographs using deep convolutional networks"](https://www.researchgate.net/publication/314100087_Accurate_segmentation_of_lung_fields_on_chest_radiographs_using_deep_convolutional_networks).
