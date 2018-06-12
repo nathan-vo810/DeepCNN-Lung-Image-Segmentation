@@ -12,38 +12,41 @@ LABEL_PATH = DATA_PATH + 'label/'
 SAVE_PATH = DATA_PATH + 'generate/'
 
 
-class dataGenerator:
+class DataGenerator:
     def __init__(self, windowSize, numberOfWindows):
         self.windowSize = windowSize
         self.numberOfWindows = numberOfWindows
+        self.image_type = 'jpg'
 
-    def load_inputs(self, input_path, type='jpg'):
-        inputs_list = []
-        input_files = os.listdir(input_path)
-        print("Loading: {}".format(input_path))
-        input_files = [input_file for input_file in input_files if input_file.endswith(type)]
+    def get_files_list(self, input_path):
+        files_list = os.listdir(input_path)
+        files_list = [file for file in files_list if file.endswith(self.image_type)]
+        return files_list
 
-        for input_file in input_files:
-            input_array = cv2.imread(input_path + input_file)
-            inputs_list.append(input_array)
-            cv2.waitKey(0)
-        return inputs_list
+    def load_image(self, image_path):
+        print("Loading: {}".format(image_path))
+        image = cv2.imread(image_path)
+        return image
 
-    def padding_images(self, images):
-        pad_images = []
-        for i in range(len(images)):
-            image_width = images[i].shape[0]
-            image_height = images[i].shape[1]
-            image_channels = images[i].shape[2]
+    def pad_image(self, image):
+        pad_width = image.shape[0] + self.windowSize + 1
+        pad_height = image.shape[1] + self.windowSize + 1
 
-            pad_width = self.windowSize + image_width + 1
-            pad_height = self.windowSize + image_height + 1
+        pad_image = np.zeros((pad_width, pad_height, image.shape[2]))
+        pad_image[:image.shape[0], :image.shape[1], :] = image
 
-            pad_image = np.zeros((pad_width, pad_height, image_channels))
-            pad_image[:image_width, :image_height, :] = images[i]
+        return pad_image
 
-            pad_images.append(pad_image)
-            return pad_images
+    def create_dir(self, image_name):
+        save_dir = SAVE_PATH + image_name
+        if not os.path.lexists(save_dir):
+            os.makedirs(save_dir + '/0/')
+            os.makedirs(save_dir + '/1/')
+
+    def get_random_point(self, x_range, y_range):
+        x = random.randint(0, x_range - 1)
+        y = random.randint(0, y_range - 1)
+        return x, y
 
     def determine_label(self, x, y, label):
         is_lung = True
@@ -61,50 +64,44 @@ class dataGenerator:
         return window
 
     def save_window(self, window, is_lung, window_id):
-        print('Saving...')
         if is_lung:
-            save_path = SAVE_PATH + '1/'
+            save_path = SAVE_PATH + '/1/'
         else:
-            save_path = SAVE_PATH + '0/'
-        save_path = save_path + str(window_id) + '.jpg'
+            save_path = SAVE_PATH + '/0/'
+        save_path = save_path + window_id + '.jpg'
         cv2.imwrite(save_path, window)
         print('Saved {}.'.format(window_id))
 
     def generate_windows(self):
-        print('Loading images...')
-        images = self.load_inputs(input_path=IMAGE_PATH)
-        labels = self.load_inputs(input_path=LABEL_PATH)
-        print('Loaded.')
+        # Get list of images and labels
+        images_list = self.get_files_list(input_path=IMAGE_PATH)
+        labels_list = self.get_files_list(input_path=LABEL_PATH)
 
-        width = images[0].shape[0]
-        height = images[0].shape[1]
+        for i in range(len(images_list)):
+            # Load and pad image
+            image = self.load_image(IMAGE_PATH + images_list[i])
+            width = image.shape[0]
+            height = image.shape[1]
+            image = self.pad_image(image)
 
-        print('Padding zeros...')
-        images = self.padding_images(images)
-        labels = self.padding_images(labels)
-        print('Padded')
+            # Load label
+            label = self.load_image(LABEL_PATH + labels_list[i])
+            label = self.pad_image(label)
 
-        image = images[0]
-        label = labels[0]
+            # Pick random points, check label and save
+            picked_points = np.ones((width, height))
+            count = 0
+            while count < self.numberOfWindows:
+                x, y = self.get_random_point(width, height)
+                if picked_points[x, y] == 1:
+                    count += 1
+                    picked_points[x, y] = 0
+                    is_lung = self.determine_label(x, y, label)
+                    lung_window = self.get_window(x, y, image)
+                    window_id = images_list[i].split('.')[0] + '_' + str(count)
+                    self.save_window(lung_window, is_lung, window_id)
 
-        print(len(labels))
-
-        # cv2.imshow('label', cv2.resize(image, (512, 512)))
-        # cv2.waitKey(0)
-
-        # print(label.shape)
-
-        picked_points = np.ones((width, height))
-        '''
-        for i in range(self.numberOfWindows):
-            x = random.randint(0, width)
-            y = random.randint(0, height)
-            if picked_points[x, y] == 1:
-                is_lung = self.determine_label(x, y, label)
-                window = self.get_window(x, y, image)
-                self.save_window(window, is_lung, i)
-        '''
 
 if __name__ == "__main__":
-    generator = dataGenerator(50, 10)
+    generator = DataGenerator(99, 1000)
     generator.generate_windows()
