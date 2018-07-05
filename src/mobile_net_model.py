@@ -3,38 +3,14 @@ from keras.layers import Input, Conv2D, MaxPooling2D, Dense, Flatten, SeparableC
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
 
-from src import DataLoader
-import matplotlib.pyplot as plt
 import os
+import cv2
+from scipy import misc
+from src.utils import *
 
 DIR = os.path.dirname(__file__)
-WEIGHT_PATH = os.path.join(DIR, '../weight/weight.hdf5')
-
-
-def load_data():
-    data_loader = DataLoader()
-    train_data, label_data = data_loader.load_train_data()
-    return train_data, label_data
-
-
-def plot_diagram(history):
-    # Loss Curves
-    plt.figure(figsize=[8, 6])
-    plt.plot(history.history['loss'], 'r', linewidth=3.0)
-    plt.plot(history.history['val_loss'], 'b', linewidth=3.0)
-    plt.legend(['Training loss', 'Validation Loss'], fontsize=18)
-    plt.xlabel('Epochs ', fontsize=16)
-    plt.ylabel('Loss', fontsize=16)
-    plt.title('Loss Curves', fontsize=16)
-
-    # Accuracy Curves
-    plt.figure(figsize=[8, 6])
-    plt.plot(history.history['acc'], 'r', linewidth=3.0)
-    plt.plot(history.history['val_acc'], 'b', linewidth=3.0)
-    plt.legend(['Training Accuracy', 'Validation Accuracy'], fontsize=18)
-    plt.xlabel('Epochs ', fontsize=16)
-    plt.ylabel('Accuracy', fontsize=16)
-    plt.title('Accuracy Curves', fontsize=16)
+WEIGHT_PATH = os.path.join(DIR, '../weight/weight_mobile_net.hdf5')
+TEST_PATH = os.path.join(DIR, '../data/test/')
 
 
 class MobileNet:
@@ -44,14 +20,15 @@ class MobileNet:
     """
 
     def __init__(self, batch_size=128, epochs=20, lr=3e-4, load_weight=False):
-        self.image_size = (224, 224, 3)
+        self.window_size = 224
         self.batch_size = batch_size
         self.epochs = epochs
         self.lr = lr
         self.load_weight = load_weight
+        self.model = None
 
     def build_model(self):
-        inputs = Input(self.image_size)
+        inputs = Input((self.window_size, self.window_size, 3))
 
         conv = Conv2D(filters=32, kernel_size=3, strides=2, padding='same', activation='relu')(inputs)
         dw1 = SeparableConv2D(filters=64, kernel_size=3, strides=1, padding='same', activation='relu')(conv)
@@ -73,37 +50,55 @@ class MobileNet:
         pool = AveragePooling2D(pool_size=(7, 7), strides=1)(dw9)
         flatten = Flatten()(pool)
 
-        FC1 = Dense(1024, activation='relu')(flatten)
-        output = Dense(1, activation='sigmoid')(FC1)
+        fc1 = Dense(1024, activation='relu')(flatten)
+        output = Dense(1, activation='sigmoid')(fc1)
 
-        model = Model(inputs=inputs, outputs=output)
-        model.compile(optimizer=Adam(lr=self.lr), loss='binary_crossentropy', metrics=['accuracy'])
+        mobile_net_model = Model(inputs=inputs, outputs=output)
+        mobile_net_model.compile(optimizer=Adam(lr=self.lr), loss='binary_crossentropy', metrics=['accuracy'])
 
-        return model
+        self.model = mobile_net_model
 
     def train(self):
-        model = self.build_model()
-        model.summary()
-
         print("Loading data...")
-        train_data, label_data = load_data()
+        train_data, label_data = load_data('generate', window_size=self.window_size)
+        train_validate, label_validate = load_data('validate', window_size=self.window_size)
         print("Data loaded.")
 
         if self.load_weight:
             print("Loading weight...")
-            model.load_weights(WEIGHT_PATH)
+            self.model.load_weights(WEIGHT_PATH)
             print("Weight loaded.")
 
         print("Training...")
         model_checkpoint = ModelCheckpoint(WEIGHT_PATH, monitor='loss', verbose=1, save_best_only=True)
-        train_history = model.fit(train_data, label_data, batch_size=self.batch_size, epochs=20, verbose=1,
-                                  validation_split=0.3,
-                                  shuffle=True,
-                                  callbacks=[model_checkpoint])
-        return train_history
+        history = self.model.fit(train_data, label_data, validation_data=(train_validate, label_validate),
+                                 batch_size=self.batch_size, epochs=self.epochs, verbose=1, shuffle=True,
+                                 callbacks=[model_checkpoint])
+
+        return history
+
+    def predict(self, image_path):
+        print("Loading weight...")
+        self.model.load_weights(WEIGHT_PATH)
+        print("Loaded.")
+
+        print("Loading test image...")
+        test_image = cv2.imread(image_path)
+        windows = generate_test(test_image, self.window_size)
+        print("Loaded.")
+
+        print("Predicting...")
+        predict_value = self.model.predict(windows, verbose=1)
+        result_image = process_predict_value(predict_value, 0.8, test_image, self.window_size)
+        print("Predicted.")
+
+        print("Saving...")
+        misc.imsave(TEST_PATH + 'result.jpg', result_image)
+        print("Saved.")
 
 
 if __name__ == '__main__':
     network = MobileNet()
+    network.build_model()
     train_history = network.train()
     plot_diagram(train_history)

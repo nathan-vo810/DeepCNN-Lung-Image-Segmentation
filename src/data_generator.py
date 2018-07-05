@@ -13,9 +13,9 @@ SAVE_PATH = DATA_PATH + 'generate/'
 
 
 class DataGenerator:
-    def __init__(self, windowSize, numberOfWindows):
-        self.windowSize = windowSize
-        self.numberOfWindows = numberOfWindows
+    def __init__(self, window_size, number_of_windows=0):
+        self.window_size = window_size
+        self.number_of_windows = number_of_windows
         self.image_type = 'jpg'
 
     def get_files_list(self, input_path):
@@ -23,14 +23,9 @@ class DataGenerator:
         files_list = [file for file in files_list if file.endswith(self.image_type)]
         return files_list
 
-    def load_image(self, image_path):
-        print("Loading: {}".format(image_path))
-        image = cv2.imread(image_path)
-        return image
-
     def pad_image(self, image):
-        pad_width = image.shape[0] + self.windowSize + 1
-        pad_height = image.shape[1] + self.windowSize + 1
+        pad_width = image.shape[0] + self.window_size + 1
+        pad_height = image.shape[1] + self.window_size + 1
 
         pad_image = np.zeros((pad_width, pad_height, image.shape[2]))
         pad_image[:image.shape[0], :image.shape[1], :] = image
@@ -50,16 +45,16 @@ class DataGenerator:
 
     def determine_label(self, x, y, label):
         is_lung = True
-        for i in range(self.windowSize):
-            for j in range(self.windowSize):
+        for i in range(self.window_size):
+            for j in range(self.window_size):
                 if label[x + i, y + j, 2] < 250:
                     is_lung = False
         return is_lung
 
     def get_window(self, x, y, image):
-        window = np.zeros((self.windowSize, self.windowSize, 3))
-        for i in range(self.windowSize):
-            for j in range(self.windowSize):
+        window = np.zeros((self.window_size, self.window_size, 3))
+        for i in range(self.window_size):
+            for j in range(self.window_size):
                 window[i, j, :] = image[x + i, y + j, :]
         return window
 
@@ -72,6 +67,25 @@ class DataGenerator:
         cv2.imwrite(save_path, window)
         print('Saved {}.'.format(window_id))
 
+    def get_test_data(self, image):
+        img_width, img_height = image.shape[:2]
+        image = self.pad_image(image)
+
+        n_cols = int(img_width / self.window_size)
+        n_rows = int(img_height / self.window_size)
+        windows = np.empty(
+            (n_cols * n_rows, self.window_size, self.window_size, 3))
+
+        index = 0
+        for i in range(n_cols):
+            for j in range(n_rows):
+                print("Window number {}".format(index + 1))
+                window = self.get_window(i * self.window_size, j * self.window_size, image)
+                windows[index] = window
+                index += 1
+
+        return windows
+
     def generate_windows(self):
         # Get list of images and labels
         images_list = self.get_files_list(input_path=IMAGE_PATH)
@@ -79,19 +93,18 @@ class DataGenerator:
 
         for i in range(len(images_list)):
             # Load and pad image
-            image = self.load_image(IMAGE_PATH + images_list[i])
-            width = image.shape[0]
-            height = image.shape[1]
+            image = cv2.imread(IMAGE_PATH + images_list[i])
+            width, height = image.shape[:2]
             image = self.pad_image(image)
 
             # Load label
-            label = self.load_image(LABEL_PATH + labels_list[i])
+            label = cv2.imread(LABEL_PATH + labels_list[i])
             label = self.pad_image(label)
 
             # Pick random points, check label and save
             picked_points = np.ones((width, height))
             count = 0
-            while count < self.numberOfWindows:
+            while count < self.number_of_windows:
                 x, y = self.get_random_point(width, height)
                 if picked_points[x, y] == 1:
                     count += 1
@@ -103,5 +116,5 @@ class DataGenerator:
 
 
 if __name__ == "__main__":
-    generator = DataGenerator(99, 1000)
+    generator = DataGenerator(224, 1000)
     generator.generate_windows()

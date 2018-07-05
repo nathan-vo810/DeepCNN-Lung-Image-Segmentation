@@ -3,17 +3,17 @@ import cv2
 import os
 
 DIR = os.path.dirname(__file__)
-DATA_PATH = os.path.join(DIR, '../data/generate/')
 
 
 class DataLoader:
-    def __init__(self):
+    def __init__(self, data_path, window_size):
         self.image_type = 'jpg'
-        self.window_size = 99
+        self.window_size = window_size
+        self.DATA_PATH = os.path.join(DIR, '../data/' + str(window_size) + '/' + data_path + '/')
 
     def get_images(self, is_lung):
         folder = '1/' if is_lung else '0/'
-        images = os.listdir(DATA_PATH + folder)
+        images = os.listdir(self.DATA_PATH + folder)
         images = [image for image in images if image.endswith(self.image_type)]
         return images
 
@@ -21,7 +21,7 @@ class DataLoader:
         i = index
         folder = '1/' if is_lung else '0/'
         for file in images:
-            image = cv2.imread(DATA_PATH + folder + file)
+            image = cv2.imread(self.DATA_PATH + folder + file)
             array[i] = image
             i += 1
 
@@ -29,7 +29,7 @@ class DataLoader:
         labels_array = np.ndarray((no_lung_images + no_non_lung_images, 1))
         for i in range(no_lung_images):
             labels_array[i] = 1
-        for i in range(no_lung_images, no_lung_images+no_non_lung_images):
+        for i in range(no_lung_images, no_lung_images + no_non_lung_images):
             labels_array[i] = 0
         return labels_array
 
@@ -50,6 +50,7 @@ class DataLoader:
 
         return train_data, label_data
 
+
 if __name__ == '__main__':
-    data_loader = DataLoader()
+    data_loader = DataLoader(window_size=224)
     data_loader.load_train_data()
