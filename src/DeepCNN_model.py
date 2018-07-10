@@ -1,5 +1,5 @@
 from keras.models import Model
-from keras.layers import Input, Conv2D, MaxPooling2D, Dense, Flatten
+from keras.layers import Input, Conv2D, MaxPooling2D, Dense, Flatten, Dropout
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
 
@@ -43,9 +43,10 @@ class DeepCNN:
 
         conv5 = Conv2D(filters=96, kernel_size=3, strides=1, padding="same", activation="relu")(pool4)
 
-        output = Flatten()(conv5)
-        output = Dense(500, activation="relu")(output)
-        output = Dense(1, activation="sigmoid")(output)
+        flatten = Flatten()(conv5)
+        fc1 = Dense(500, activation="relu")(flatten)
+        fc1 = Dropout(0.5)(fc1)
+        output = Dense(1, activation="sigmoid")(fc1)
 
         model = Model(inputs=inputs, outputs=output)
 
