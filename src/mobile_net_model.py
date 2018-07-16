@@ -1,5 +1,5 @@
 from keras.models import Model
-from keras.layers import Input, Conv2D, MaxPooling2D, Dense, Flatten, SeparableConv2D, AveragePooling2D
+from keras.layers import Input, Conv2D, MaxPooling2D, Dense, Flatten, SeparableConv2D, GlobalAveragePooling2D
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
 
@@ -19,13 +19,12 @@ class MobileNet:
     Network input size is 224x224x3
     """
 
-    def __init__(self, batch_size=128, epochs=20, lr=3e-4, load_weight=False):
+    def __init__(self, batch_size=128, epochs=6, lr=1e-3, load_weight=False):
         self.window_size = 224
         self.batch_size = batch_size
         self.epochs = epochs
         self.lr = lr
         self.load_weight = load_weight
-        self.model = None
 
     def build_model(self):
         inputs = Input((self.window_size, self.window_size, 3))
@@ -47,16 +46,16 @@ class MobileNet:
         dw8 = SeparableConv2D(filters=1024, kernel_size=3, strides=2, padding='same', activation='relu')(dw7)
         dw9 = SeparableConv2D(filters=1024, kernel_size=3, strides=1, padding='same', activation='relu')(dw8)
 
-        pool = AveragePooling2D(pool_size=(7, 7), strides=1)(dw9)
-        flatten = Flatten()(pool)
+        pool = GlobalAveragePooling2D()(dw9)
+        # flatten = Flatten()(pool)
 
-        fc1 = Dense(1024, activation='relu')(flatten)
-        output = Dense(1, activation='sigmoid')(fc1)
+        # fc1 = Dense(1024, activation='relu')(flatten)
+        output = Dense(1, activation='sigmoid')(pool)
 
         mobile_net_model = Model(inputs=inputs, outputs=output)
         mobile_net_model.compile(optimizer=Adam(lr=self.lr), loss='binary_crossentropy', metrics=['accuracy'])
 
-        self.model = mobile_net_model
+        return mobile_net_model
 
     def train(self):
         print("Loading data...")
@@ -78,8 +77,10 @@ class MobileNet:
         return history
 
     def predict(self, image_path):
+        model = self.build_model()
+        model.summary()
         print("Loading weight...")
-        self.model.load_weights(WEIGHT_PATH)
+        model.load_weights(WEIGHT_PATH)
         print("Loaded.")
 
         print("Loading test image...")
@@ -88,7 +89,8 @@ class MobileNet:
         print("Loaded.")
 
         print("Predicting...")
-        predict_value = self.model.predict(windows, verbose=1)
+        predict_value = model.predict(windows, verbose=1)
+        print(predict_value)
         result_image = process_predict_value(predict_value, 0.8, test_image, self.window_size)
         print("Predicted.")
 
@@ -99,6 +101,7 @@ class MobileNet:
 
 if __name__ == '__main__':
     network = MobileNet()
-    network.build_model()
-    train_history = network.train()
-    plot_diagram(train_history)
+    # network.build_model()
+    # train_history = network.train()
+    # plot_diagram(train_history)
+    network.predict(TEST_PATH + '21.jpg')

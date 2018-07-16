@@ -33,7 +33,7 @@ def main():
         model = DeepCNN()
 
     model.build_model()
-    model.predict(TEST_IMAGES)
+    model.predict(TEST_IMAGES + '21.jpg')
 
 
 if __name__ == '__main__':

@@ -6,10 +6,10 @@ import random
 DIR = os.path.dirname(__file__)
 DATA_PATH = os.path.join(DIR, '../data/')
 
-IMAGE_PATH = DATA_PATH + 'img/'
-LABEL_PATH = DATA_PATH + 'label/'
+IMAGE_PATH = DATA_PATH + 'img_val/'
+LABEL_PATH = DATA_PATH + 'label_val/'
 
-SAVE_PATH = DATA_PATH + 'generate/'
+SAVE_PATH = DATA_PATH + '99/validate/'
 
 
 class DataGenerator:
@@ -83,7 +83,6 @@ class DataGenerator:
                 window = self.get_window(i * self.window_size, j * self.window_size, image)
                 windows[index] = window
                 index += 1
-
         return windows
 
     def generate_windows(self):
@@ -116,5 +115,5 @@ class DataGenerator:
 
 
 if __name__ == "__main__":
-    generator = DataGenerator(224, 1000)
+    generator = DataGenerator(99, 500)
     generator.generate_windows()
