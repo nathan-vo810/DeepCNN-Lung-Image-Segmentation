@@ -58,6 +58,7 @@ class MobileNet:
         return mobile_net_model
 
     def train(self):
+        model = self.build_model()
         print("Loading data...")
         train_data, label_data = load_data('generate', window_size=self.window_size)
         train_validate, label_validate = load_data('validate', window_size=self.window_size)
@@ -65,12 +66,12 @@ class MobileNet:
 
         if self.load_weight:
             print("Loading weight...")
-            self.model.load_weights(WEIGHT_PATH)
+            model.load_weights(WEIGHT_PATH)
             print("Weight loaded.")
 
         print("Training...")
         model_checkpoint = ModelCheckpoint(WEIGHT_PATH, monitor='loss', verbose=1, save_best_only=True)
-        history = self.model.fit(train_data, label_data, validation_data=(train_validate, label_validate),
+        history = model.fit(train_data, label_data, validation_data=(train_validate, label_validate),
                                  batch_size=self.batch_size, epochs=self.epochs, verbose=1, shuffle=True,
                                  callbacks=[model_checkpoint])
 
@@ -102,6 +103,6 @@ class MobileNet:
 if __name__ == '__main__':
     network = MobileNet()
     # network.build_model()
-    # train_history = network.train()
-    # plot_diagram(train_history)
-    network.predict(TEST_PATH + '21.jpg')
+    train_history = network.train()
+    plot_diagram(train_history)
+    # network.predict(TEST_PATH + '21.jpg')
