@@ -15,7 +15,7 @@ class DataLoader:
         folder = '1/' if is_lung else '0/'
         images = os.listdir(self.DATA_PATH + folder)
         images = [image for image in images if image.endswith(self.image_type)]
-        return images
+        return images[:]
 
     def append_images_to_array(self, array, images, is_lung, index):
         i = index
