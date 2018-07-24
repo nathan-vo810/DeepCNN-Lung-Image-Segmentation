@@ -8,9 +8,12 @@ from src.utils import *
 import os
 import cv2
 from scipy import misc
+import pickle as pkl
 
 DIR = os.path.dirname(__file__)
 WEIGHT_DIR = os.path.join(DIR, '../weight/')
+weight_11_file = '11_weight_deep_cnn_val_0.762_loss_0.464.hdf5'
+weight_99_file = '99_weight_deep_cnn_val_acc_92.hdf5'
 TEST_DIR = os.path.join(DIR, '../data/test/')
 WINDOW_SIZE = 11
 
@@ -115,41 +118,77 @@ class DeepCNN:
 
         return history
 
-    def predict(self, image_path):
+    def prepare_models(self):
         model_11 = self.build_model_window_11()
         model_99 = self.build_model_window_99()
-
-        weight_11_file = '11_weight_deep_cnn_val_0.762_loss_0.464.hdf5'
-        weight_99_file = '99_weight_deep_cnn_val_acc_92.hdf5'
 
         print("Loading weight...")
         model_11.load_weights(WEIGHT_DIR + weight_11_file)
         model_99.load_weights(WEIGHT_DIR + weight_99_file)
         print("Loaded.")
+        return model_11, model_99
+
+    def predict(self, image_path):
+        model = self.build_model_window_11()
+        model.summary()
+        print("Loading weight...")
+        model.load_weights(WEIGHT_DIR + weight_11_file)
+        print("Loaded.")
 
         print("Loading test image...")
         test_image = cv2.imread(image_path)
-        windows_99 = generate_test(test_image, 99)
+        windows = generate_test(test_image, WINDOW_SIZE)
         print("Loaded.")
 
         print("Predicting...")
-        result_image = []
-        predict_value_99 = model_99.predict(windows_99, verbose=1)
-        for i in range(len(windows_99)):
-            windows_11 = generate_test(windows_99[i], 11)
-            predict_value_11 = model_11.predict(windows_11, verbose=1)
-            predict_value_11 *= predict_value_99[i]
-            predicted_window = process_predict_value(predict_value_11, 0.5, windows_99[i], 11)
-            result_image.append(predicted_window)
-        result_image = np.array(result_image)
-        width, height = test_image.shape[:2]
-        width, height = int(width / 99) * 99, int(height / 99) * 99
-        result_image = result_image.reshape((-1, width, height))
-        print(result_image.shape, type(result_image))
+        predict_value = model.predict(windows, verbose=1)
+        result_image = process_predict_value(predict_value, 0.5, test_image, WINDOW_SIZE)
         print("Predicted.")
 
         print("Saving...")
-        misc.imsave(TEST_DIR + 'result_' + str(WINDOW_SIZE) + '.jpg', result_image)
+        misc.imsave(TEST_DIR + 'result.jpg', result_image)
+        print("Saved.")
+
+    def predict_custom(self, image_path):
+        model_11, model_99 = self.prepare_models()
+
+        print("Loading test image...")
+        test_image = cv2.imread(image_path)
+
+        '''
+        windows_99 = generate_test(test_image, 99)
+        '''
+
+        # with open('list.pkl', 'wb') as file:
+        #     pkl.dump(windows_99,file, pkl.HIGHEST_PROTOCOL)
+
+        with open('list.pkl', 'rb') as file:
+            windows_99 = pkl.load(file)
+        print("Loaded.")
+
+        print("Predicting...")
+
+        predict_value_99 = model_99.predict(windows_99, verbose=1)
+
+        width, height = test_image.shape[:2]
+        n_cols, n_rows = int(width / 99), int(height / 99)
+        result_image = np.array([]).reshape(0, n_cols * 99)
+
+        row = np.array([]).reshape((99, 0))
+        for i in range(len(windows_99)):
+            windows_11 = generate_test(windows_99[i], window_size=11)
+            predict_value_11 = model_11.predict(windows_11, verbose=1)
+            predict_value_11 *= predict_value_99[i]
+            predicted_window = process_predict_value(predict_value_11, 0.8, windows_99[i], 11)
+            row = np.hstack((row, predicted_window))
+            if (i + 1) % n_cols == 0:
+                result_image = np.vstack((result_image, row))
+                row = np.array([]).reshape((99, 0))
+
+        print("Predicted.")
+
+        print("Saving...")
+        misc.imsave(TEST_DIR + 'result.jpg', result_image)
         print("Saved.")
 
 
