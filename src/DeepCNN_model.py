@@ -13,9 +13,12 @@ import pickle as pkl
 DIR = os.path.dirname(__file__)
 WEIGHT_DIR = os.path.join(DIR, '../weight/')
 weight_11_file = '11_weight_deep_cnn_val_0.762_loss_0.464.hdf5'
+weight_32_file = '32_weight_deep_cnn_val_0.859_loss_0.274.hdf5'
 weight_99_file = '99_weight_deep_cnn_val_acc_92.hdf5'
+
 TEST_DIR = os.path.join(DIR, '../data/test/')
 WINDOW_SIZE = 11
+BIG_WINDOW_SIZE = 99
 
 
 class DeepCNN:
@@ -68,7 +71,7 @@ class DeepCNN:
         '''
         model = Sequential()
         model.add(Conv2D(filters=16, kernel_size=5, strides=1, padding='valid', activation='relu',
-                         input_shape=(99, 99, 3), name='Conv1'))
+                         input_shape=(BIG_WINDOW_SIZE, BIG_WINDOW_SIZE, 3), name='Conv1'))
         # model.add(BatchNormalization())
         model.add(MaxPooling2D(pool_size=(2, 2)))
 
@@ -149,41 +152,44 @@ class DeepCNN:
         misc.imsave(TEST_DIR + 'result.jpg', result_image)
         print("Saved.")
 
+    def save(self, test_image):
+        windows_99 = generate_test(test_image, 32)
+        with open('list_32.pkl', 'wb') as file:
+            pkl.dump(windows_99,file, pkl.HIGHEST_PROTOCOL)
+
+    def load(self):
+        with open('list.pkl', 'rb') as file:
+            windows_99 = pkl.load(file)
+        return windows_99
+
     def predict_custom(self, image_path):
         model_11, model_99 = self.prepare_models()
 
         print("Loading test image...")
         test_image = cv2.imread(image_path)
 
-        '''
-        windows_99 = generate_test(test_image, 99)
-        '''
-
-        # with open('list.pkl', 'wb') as file:
-        #     pkl.dump(windows_99,file, pkl.HIGHEST_PROTOCOL)
-
-        with open('list.pkl', 'rb') as file:
-            windows_99 = pkl.load(file)
+        # self.save(test_image)
+        windows_99 = self.load()
         print("Loaded.")
 
         print("Predicting...")
 
         predict_value_99 = model_99.predict(windows_99, verbose=1)
 
-        width, height = test_image.shape[:2]
-        n_cols, n_rows = int(width / 99), int(height / 99)
-        result_image = np.array([]).reshape(0, n_cols * 99)
+        height, width = test_image.shape[:2]
+        n_cols, n_rows = int(width / BIG_WINDOW_SIZE), int(height / BIG_WINDOW_SIZE)
+        result_image = np.array([]).reshape(0, n_cols * BIG_WINDOW_SIZE)
 
-        row = np.array([]).reshape((99, 0))
+        row = np.array([]).reshape((BIG_WINDOW_SIZE, 0))
         for i in range(len(windows_99)):
             windows_11 = generate_test(windows_99[i], window_size=11)
             predict_value_11 = model_11.predict(windows_11, verbose=1)
             predict_value_11 *= predict_value_99[i]
-            predicted_window = process_predict_value(predict_value_11, 0.8, windows_99[i], 11)
+            predicted_window = process_predict_value(predict_value_11, 0.3, windows_99[i], 11)
             row = np.hstack((row, predicted_window))
             if (i + 1) % n_cols == 0:
                 result_image = np.vstack((result_image, row))
-                row = np.array([]).reshape((99, 0))
+                row = np.array([]).reshape((BIG_WINDOW_SIZE, 0))
 
         print("Predicted.")
 
@@ -209,4 +215,4 @@ if __name__ == '__main__':
     # train_history = network.fit(x_train, y_train, x_val, y_val)
     # plot_diagram(train_history)
 
-    network.predict(TEST_DIR + '21.jpg')
+    network.predict_custom(TEST_DIR + '21.jpg')
