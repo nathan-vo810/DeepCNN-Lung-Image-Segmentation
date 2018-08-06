@@ -51,6 +51,14 @@ class DataGenerator:
                     is_lung = False
         return is_lung
 
+    def determine_label_center(self, x, y, label):
+        is_lung = True
+        center_x = x+int(self.window_size/2)
+        center_y = y+int(self.window_size/2)
+        if label[center_x, center_y, 2] < 250:
+            is_lung = False
+        return is_lung
+
     def get_window(self, x, y, image):
         window = np.zeros((self.window_size, self.window_size, 3))
         for i in range(self.window_size):
@@ -85,7 +93,7 @@ class DataGenerator:
                 index += 1
         return windows
 
-    def generate_windows(self):
+    def generate_windows(self, is_lung):
         # Get list of images and labels
         images_list = self.get_files_list(input_path=IMAGE_PATH)
         labels_list = self.get_files_list(input_path=LABEL_PATH)
@@ -106,14 +114,15 @@ class DataGenerator:
             while count < self.number_of_windows:
                 x, y = self.get_random_point(width, height)
                 if picked_points[x, y] == 1:
-                    count += 1
                     picked_points[x, y] = 0
-                    is_lung = self.determine_label(x, y, label)
-                    lung_window = self.get_window(x, y, image)
-                    window_id = images_list[i].split('.')[0] + '_' + str(count)
-                    self.save_window(lung_window, is_lung, window_id)
+                    if is_lung == self.determine_label_center(x, y, label):
+                        count += 1
+                        window = self.get_window(x, y, image)
+                        window_id = images_list[i].split('.')[0] + '_' + str(count)
+                        self.save_window(window, is_lung, window_id)
 
 
 if __name__ == "__main__":
     generator = DataGenerator(99, 500)
-    generator.generate_windows()
+    generator.generate_windows(is_lung=True)
+    generator.generate_windows(is_lung=False)
