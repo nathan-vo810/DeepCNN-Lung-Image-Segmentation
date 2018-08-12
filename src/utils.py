@@ -36,6 +36,14 @@ def generate_test(test_image, window_size):
     return windows
 
 
+def hybrid_process(predict_value, test_image, window_size):
+    predict_value = predict_value.argmax(axis=1)
+    predict_value[predict_value == 1] = 255
+
+    result_image = get_result_label(test_image, predict_value, window_size)
+    return result_image
+
+
 def process_predict_value(predict_value, threshold, test_image, window_size):
     predict_value[predict_value < threshold] = 0
     predict_value[predict_value >= threshold] = 255
@@ -45,15 +53,16 @@ def process_predict_value(predict_value, threshold, test_image, window_size):
 
 
 def get_result_label(test_image, predict_value, window_size):
-    image_width, image_height = test_image.shape[:2]
-    result_image = np.empty((image_width, image_height))
+    image_height, image_width = test_image.shape[:2]
+    result_image = np.empty((image_height, image_width))
 
-    n_cols = int(image_width / window_size)
     n_rows = int(image_height / window_size)
-    predict_value = predict_value.reshape((n_cols, n_rows))
+    n_cols = int(image_width / window_size)
 
-    for i in range(n_cols):
-        for j in range(n_rows):
+    predict_value = predict_value.reshape((n_rows, n_cols))
+
+    for i in range(n_rows):
+        for j in range(n_cols):
             fill_window(predict_value[i, j], i, j, result_image, window_size)
     return result_image
 

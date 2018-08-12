@@ -168,8 +168,8 @@ class DeepCNN:
 
         print("Loading test image...")
         test_image = cv2.imread(image_path)
-        self.save(test_image, window_size)
-        windows = self.load(window_size)
+        # self.save(test_image, window_size)
+        windows = self.load(window_size)[0]
         print("Loaded.")
 
         print("Predicting...")

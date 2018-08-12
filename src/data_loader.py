@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import os
+import pickle
 
 DIR = os.path.dirname(__file__)
 
@@ -15,7 +16,7 @@ class DataLoader:
         folder = '1/' if is_lung else '0/'
         images = os.listdir(self.DATA_PATH + folder)
         images = [image for image in images if image.endswith(self.image_type)]
-        return images[:]
+        return sorted(images[:])
 
     def append_images_to_array(self, array, images, is_lung, index):
         i = index
@@ -33,11 +34,21 @@ class DataLoader:
             labels_array[i] = 0
         return labels_array
 
+    def load_pkl(self, pkl_file):
+        with open(pkl_file, 'rb') as file:
+            locations = pickle.load(file)
+        return locations
+
     def load_train_data(self):
         print('Load lung samples...')
         lung_images = self.get_images(is_lung=True)
+        lung_images_location = self.load_pkl(self.DATA_PATH + '1/location.pkl')
         print('Load non lung samples...')
         non_lung_images = self.get_images(is_lung=False)
+        non_lung_images_location = self.load_pkl(self.DATA_PATH + '0/location.pkl')
+
+        locations = np.concatenate((lung_images_location, non_lung_images_location), axis=0)
+        locations = np.reshape(locations, (locations.shape[0], -1, 1))
 
         no_lung_images = len(lung_images)
         no_non_lung_images = len(non_lung_images)
@@ -48,7 +59,7 @@ class DataLoader:
 
         label_data = self.generate_labels_array(no_lung_images, no_non_lung_images)
 
-        return train_data, label_data
+        return [train_data, locations], label_data
 
 
 if __name__ == '__main__':
