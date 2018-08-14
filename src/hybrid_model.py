@@ -9,7 +9,7 @@ from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint, TensorBoard
 from keras.utils import to_categorical
 
-from src.utils import load_data, hybrid_process, generate_test, process_predict_value
+from src.utils import load_data, hybrid_process, get_test_data
 
 DIR = os.path.dirname(__file__)
 WEIGHT_DIR = os.path.join(DIR, '../weight/')
@@ -85,7 +85,7 @@ class HybridModel:
         print("Saved.")
 
     def save(self, test_image, window_size):
-        windows = generate_test(test_image, window_size)
+        windows = get_test_data(test_image, window_size)
         with open('windows_{}.pkl'.format(str(window_size)), 'wb') as file:
             pkl.dump(windows, file)
 

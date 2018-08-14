@@ -1,114 +1,32 @@
 import cv2
 import os
 import numpy as np
-import random
-import pickle
+
+from src.utils import get_relative_location, get_random_point, save_window, determine_label_center, pad_image, \
+    get_list_files, get_window, save_locations
 
 DIR = os.path.dirname(__file__)
 DATA_PATH = os.path.join(DIR, '../data/')
 
-IMAGE_PATH = DATA_PATH + 'img_val/'
-LABEL_PATH = DATA_PATH + 'label_val/'
+IMAGE_PATH = DATA_PATH + 'img/'
+LABEL_PATH = DATA_PATH + 'label/'
 
-SAVE_PATH = DATA_PATH + '11/validate/'
+VAL_IMAGE_PATH = DATA_PATH + 'img_val/'
+VAL_LABEL_PATH = DATA_PATH + 'label_val/'
+
+TRAIN_DATA_PATH = DATA_PATH + '11/generate/'
+VAL_DATA_PATH = DATA_PATH + '11/validate/'
 
 
 class DataGenerator:
-    def __init__(self, window_size, number_of_windows=0):
+    def __init__(self, window_size):
         self.window_size = window_size
-        self.number_of_windows = number_of_windows
         self.image_type = 'jpg'
 
-    def get_files_list(self, input_path):
-        files_list = os.listdir(input_path)
-        files_list = [file for file in files_list if file.endswith(self.image_type)]
-        return sorted(files_list)
-
-    def pad_image(self, image):
-        pad_height = image.shape[0] + self.window_size + 1
-        pad_width = image.shape[1] + self.window_size + 1
-
-        pad_image = np.zeros((pad_height, pad_width, image.shape[2]))
-        pad_image[:image.shape[0], :image.shape[1], :] = image
-
-        return pad_image
-
-    def get_relative_location(self, x, y, height, width):
-        x_re = (x - (width / 2)) / width
-        y_re = (y - (height / 2)) / height
-        return x_re, y_re
-
-    def create_dir(self, image_name):
-        save_dir = SAVE_PATH + image_name
-        if not os.path.lexists(save_dir):
-            os.makedirs(save_dir + '/0/')
-            os.makedirs(save_dir + '/1/')
-
-    def get_random_point(self, x_range, y_range):
-        x = random.randint(0, x_range - 1)
-        y = random.randint(0, y_range - 1)
-        return x, y
-
-    def determine_label(self, x, y, label):
-        is_lung = True
-        for i in range(self.window_size):
-            for j in range(self.window_size):
-                if label[x + i, y + j, 2] < 250:
-                    is_lung = False
-        return is_lung
-
-    def determine_label_center(self, x, y, label):
-        is_lung = True
-        center_x = x + int(self.window_size / 2)
-        center_y = y + int(self.window_size / 2)
-        if label[center_x, center_y, 2] < 250:
-            is_lung = False
-        return is_lung
-
-    def get_window(self, x, y, image):
-        window = np.zeros((self.window_size, self.window_size, 3))
-        for i in range(self.window_size):
-            for j in range(self.window_size):
-                window[i, j, :] = image[x + i, y + j, :]
-        return window
-
-    def save_window(self, window, is_lung, window_id):
-        if is_lung:
-            save_path = SAVE_PATH + '/1/'
-        else:
-            save_path = SAVE_PATH + '/0/'
-        save_path = save_path + window_id + '.jpg'
-        cv2.imwrite(save_path, window)
-        print('Saved {}.'.format(window_id))
-
-    def get_test_data(self, image):
-        img_height, img_width = image.shape[:2]
-        image = self.pad_image(image)
-
-        n_cols = int(img_width / self.window_size)
-        n_rows = int(img_height / self.window_size)
-        windows = np.empty(
-            (n_rows * n_cols, self.window_size, self.window_size, 3))
-
-        index = 0
-        locations = []
-        for i in range(n_rows):
-            for j in range(n_cols):
-                print("Window number {}".format(index + 1))
-                window = self.get_window(i * self.window_size, j * self.window_size, image)
-                windows[index] = window
-                x_re, y_re = self.get_relative_location(i*self.window_size, j*self.window_size, img_height, img_width)
-                locations.append((x_re, y_re))
-                index += 1
-        locations = np.array(locations)
-        locations.ravel()
-        locations = locations.reshape((locations.shape[0], -1, 1))
-        return [windows, locations]
-
-    def generate_windows(self, is_lung):
+    def generate_windows(self, is_lung, image_path, label_path, save_dir, number_of_windows):
         # Get list of images and labels
-        images_list = self.get_files_list(input_path=IMAGE_PATH)
-        labels_list = self.get_files_list(input_path=LABEL_PATH)
+        images_list = get_list_files(input_path=image_path, file_type=self.image_type)
+        labels_list = get_list_files(input_path=label_path, file_type=self.image_type)
 
         locations = []
 
@@ -116,38 +34,33 @@ class DataGenerator:
             # Load and pad image
             image = cv2.imread(IMAGE_PATH + images_list[i])
             height, width = image.shape[:2]
-            image = self.pad_image(image)
+            image = pad_image(image, padding=self.window_size)
 
             # Load label
             label = cv2.imread(LABEL_PATH + labels_list[i])
-            label = self.pad_image(label)
+            label = pad_image(label, padding=self.window_size)
 
             # Pick random points, check label and save
             picked_points = np.ones((height, width))
             count = 0
-            while count < self.number_of_windows:
-                x, y = self.get_random_point(height, width)
+            while count < number_of_windows:
+                x, y = get_random_point(height, width)
                 if picked_points[x, y] == 1:
                     picked_points[x, y] = 0
-                    if is_lung == self.determine_label_center(x, y, label):
+                    if is_lung == determine_label_center(x, y, label, self.window_size):
                         count += 1
-                        x_re, y_re = self.get_relative_location(x, y, height, width)
+                        x_re, y_re = get_relative_location(x, y, height, width)
                         locations.append((x_re, y_re))
-                        window = self.get_window(x, y, image)
+                        window = get_window(x, y, image, self.window_size)
                         window_id = images_list[i].split('.')[0] + '_' + str(count)
-                        self.save_window(window, is_lung, window_id)
-        locations = np.array(locations)
-        locations = locations.ravel()
-        locations = locations.reshape((-1, 2))
-        if is_lung:
-            location_path = os.path.join(SAVE_PATH, '1/location.pkl')
-        else:
-            location_path = os.path.join(SAVE_PATH, '0/location.pkl')
-        with open(location_path, 'wb') as f:
-            pickle.dump(locations, f)
+                        save_window(window, is_lung, window_id, save_dir)
+
+        save_locations(locations, is_lung, save_dir)
 
 
 if __name__ == "__main__":
-    generator = DataGenerator(11, 3000)
-    generator.generate_windows(is_lung=True)
-    generator.generate_windows(is_lung=False)
+    generator = DataGenerator(window_size=11)
+    generator.generate_windows(True, IMAGE_PATH, LABEL_PATH, TRAIN_DATA_PATH, 3000)
+    generator.generate_windows(False, IMAGE_PATH, LABEL_PATH, TRAIN_DATA_PATH, 3000)
+    generator.generate_windows(True, VAL_IMAGE_PATH, VAL_LABEL_PATH, VAL_DATA_PATH, 1000)
+    generator.generate_windows(False, VAL_IMAGE_PATH, VAL_LABEL_PATH, VAL_DATA_PATH, 1000)

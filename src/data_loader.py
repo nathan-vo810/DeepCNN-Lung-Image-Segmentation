@@ -60,8 +60,3 @@ class DataLoader:
         label_data = self.generate_labels_array(no_lung_images, no_non_lung_images)
 
         return [train_data, locations], label_data
-
-
-if __name__ == '__main__':
-    data_loader = DataLoader(window_size=224)
-    data_loader.load_train_data()
