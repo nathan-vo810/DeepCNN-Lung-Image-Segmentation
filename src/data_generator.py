@@ -4,6 +4,7 @@ import numpy as np
 
 from src.utils import get_relative_location, get_random_point, save_window, determine_label_center, pad_image, \
     get_list_files, get_window, save_locations
+from src.preprocess import convert_grayscale
 
 DIR = os.path.dirname(__file__)
 DATA_PATH = os.path.join(DIR, '../data/')
@@ -33,11 +34,13 @@ class DataGenerator:
         for i in range(len(images_list)):
             # Load and pad image
             image = cv2.imread(IMAGE_PATH + images_list[i])
+            image = convert_grayscale(image)
             height, width = image.shape[:2]
             image = pad_image(image, padding=self.window_size)
 
             # Load label
             label = cv2.imread(LABEL_PATH + labels_list[i])
+            label = convert_grayscale(label)
             label = pad_image(label, padding=self.window_size)
 
             # Pick random points, check label and save

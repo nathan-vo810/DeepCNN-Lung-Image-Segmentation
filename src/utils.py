@@ -7,10 +7,10 @@ from src.data_loader import DataLoader
 
 
 def get_window(x, y, image, window_size):
-    window = np.zeros((window_size, window_size, 3))
+    window = np.zeros((window_size, window_size))
     for i in range(window_size):
         for j in range(window_size):
-            window[i, j, :] = image[x + i, y + j, :]
+            window[i, j] = image[x + i, y + j]
     return window
 
 
@@ -54,17 +54,18 @@ def determine_label_center(x, y, label, window_size):
     is_lung = True
     center_x = x + int(window_size / 2)
     center_y = y + int(window_size / 2)
-    if label[center_x, center_y, 2] < 250:
+    if label[center_x, center_y] < 250:
         is_lung = False
     return is_lung
 
 
 def pad_image(image, padding):
+    print(image.shape)
     pad_height = image.shape[0] + padding + 1
     pad_width = image.shape[1] + padding + 1
 
-    pad_image = np.zeros((pad_height, pad_width, image.shape[2]))
-    pad_image[:image.shape[0], :image.shape[1], :] = image
+    pad_image = np.zeros((pad_height, pad_width))
+    pad_image[:image.shape[0], :image.shape[1]] = image
 
     return pad_image
 
@@ -88,14 +89,15 @@ def get_test_data(image, window_size):
     n_cols = int(img_width / window_size)
     n_rows = int(img_height / window_size)
     windows = np.empty(
-        (n_rows * n_cols, window_size, window_size, 3))
+        (n_rows * n_cols, window_size, window_size, 1))
 
     index = 0
     locations = []
     for i in range(n_rows):
         for j in range(n_cols):
-            print("Window number {}".format(index + 1))
+            # print("Window number {}".format(index + 1))
             window = get_window(i * window_size, j * window_size, image, window_size)
+            window = np.reshape(window, (window.shape[0], window.shape[1], -1))
             windows[index] = window
             x_re, y_re = get_relative_location(i * window_size, j * window_size, img_height, img_width)
             locations.append((x_re, y_re))

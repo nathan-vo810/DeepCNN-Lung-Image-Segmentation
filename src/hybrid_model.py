@@ -1,5 +1,6 @@
 import os
 import cv2
+import time
 from scipy import misc
 import pickle as pkl
 
@@ -13,7 +14,8 @@ from src.utils import load_data, hybrid_process, get_test_data
 
 DIR = os.path.dirname(__file__)
 WEIGHT_DIR = os.path.join(DIR, '../weight/')
-TEST_DIR = os.path.join(DIR, '../data/test/')
+TEST_DIR = os.path.join(DIR, '../data/test_data/')
+RESULT_DIR = os.path.join(DIR, '../data/result/')
 LOG_DIR = os.path.join(DIR, '../log/')
 
 
@@ -24,9 +26,14 @@ class HybridModel:
         self.batch_size = 32
         self.model = self._build_model()
 
+    def load_weight(self):
+        print("Loading weight...")
+        self.model.load_weights(WEIGHT_DIR + 'hybrid_0.904_loss_0.152.hdf5')
+        print("Loaded.")
+
     def _build_model(self):
-        window_input = Input(shape=(11, 11, 3))
-        conv1 = Conv2D(filters=16, kernel_size=5, strides=1, padding='valid', activation='relu')(window_input)
+        window_input = Input(shape=(11, 11, 1))
+        conv1 = Conv2D(filters=16, kernel_size=5, strides=1, padding='same', activation='relu')(window_input)
 
         conv2 = Conv2D(filters=24, kernel_size=3, strides=1, padding='same', activation='relu')(conv1)
 
@@ -66,23 +73,21 @@ class HybridModel:
                        callbacks=[model_checkpoint, tensorboard])
 
     def predict(self, x_test, window_size):
-        print("Loading weight...")
-        self.model.load_weights(WEIGHT_DIR + 'hybrid_0.947_loss_0.138.hdf5')
-        print("Loaded.")
-        print("Loading test image...")
-        test_image = cv2.imread(x_test)
+        # print("Loading test image...")
+        test_image = cv2.imread(os.path.join(TEST_DIR, x_test), 0)
         self.save(test_image, window_size)
         windows = self.load(window_size)
-        print("Loaded.")
+        # print("Loaded.")
 
-        print("Predicting...")
+        # print("Predicting...")
         predict_value = self.model.predict(windows, verbose=1)
         result_image = hybrid_process(predict_value, test_image, window_size)
-        print("Predicted.")
+        # print("Predicted.")
 
-        print("Saving...")
-        misc.imsave(TEST_DIR + 'result_{}.jpg'.format(str(window_size)), result_image)
-        print("Saved.")
+        # print("Saving...")
+        result_path = os.path.join(RESULT_DIR, x_test)
+        misc.imsave(result_path, result_image)
+        # print("Saved.")
 
     def save(self, test_image, window_size):
         windows = get_test_data(test_image, window_size)
@@ -106,7 +111,14 @@ def load_all_data(window_size):
 
 
 if __name__ == '__main__':
-    # x_train, y_train, x_val, y_val = load_all_data(window_size=11)
+    x_train, y_train, x_val, y_val = load_all_data(window_size=11)
     model = HybridModel()
-    # model.fit(x_train, y_train, x_val, y_val)
-    model.predict(TEST_DIR + '7.jpg', window_size=11)
+    # model.load_weight()
+    model.fit(x_train, y_train, x_val, y_val)
+    # images = os.listdir(TEST_DIR)
+    # images = [image for image in images if image.endswith('.jpg')]
+    # start = time.process_time()
+    # for i, image in enumerate(images):
+    #     print("Processing {}/{}".format(i + 1, len(images)))
+    #     model.predict(image, window_size=11)
+    # print("Time eslapsed: {}".format(time.process_time() - start))

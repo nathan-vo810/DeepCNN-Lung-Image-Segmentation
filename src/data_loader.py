@@ -22,7 +22,8 @@ class DataLoader:
         i = index
         folder = '1/' if is_lung else '0/'
         for file in images:
-            image = cv2.imread(self.DATA_PATH + folder + file)
+            image = cv2.imread(self.DATA_PATH + folder + file, 0)
+            image = np.reshape(image, (image.shape[0], image.shape[1], -1))
             array[i] = image
             i += 1
 
@@ -53,7 +54,7 @@ class DataLoader:
         no_lung_images = len(lung_images)
         no_non_lung_images = len(non_lung_images)
 
-        train_data = np.ndarray((no_lung_images + no_non_lung_images, self.window_size, self.window_size, 3))
+        train_data = np.ndarray((no_lung_images + no_non_lung_images, self.window_size, self.window_size, 1))
         self.append_images_to_array(array=train_data, images=lung_images, is_lung=True, index=0)
         self.append_images_to_array(array=train_data, images=non_lung_images, is_lung=False, index=no_lung_images)
 
